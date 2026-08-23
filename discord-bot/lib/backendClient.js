@@ -57,6 +57,10 @@ function getEvents() {
   return backendFetch("/internal/events");
 }
 
+function getCoupons() {
+  return backendFetch("/internal/coupons");
+}
+
 function getUser(discordId) {
   return backendFetch(`/internal/users/${encodeURIComponent(discordId)}`, {
     notFoundReturnsNull: true,
@@ -80,4 +84,5 @@ module.exports = {
   deleteUser,
   getStatus,
   getEvents,
+  getCoupons,
 };

@@ -10,6 +10,7 @@ const commands = [
   "unverify",
   "hivestatus",
   "events",
+  "coupons",
 ].map(
   (file) => require(`./commands/${file}`).data.toJSON()
 );

@@ -13,6 +13,7 @@ for (const file of [
   "unverify",
   "hivestatus",
   "events",
+  "coupons",
 ]) {
   const command = require(`./commands/${file}`);
   client.commands.set(command.data.name, command);
