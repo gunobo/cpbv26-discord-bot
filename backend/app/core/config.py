@@ -23,5 +23,16 @@ class Settings(BaseSettings):
 
     database_url: str = "sqlite:///./app.db"
 
+    @property
+    def hive_connected(self) -> bool:
+        """실제 Hive 연동이 가능한 상태인지. 모킹 모드거나 콘솔 키가 하나라도
+        비어있으면 False — 이땐 /인증이 규칙 체크만으로 완료되는 방식으로 대체된다."""
+        return (
+            not self.hive_mock_mode
+            and bool(self.hive_appid)
+            and bool(self.hive_gindex)
+            and bool(self.hive_certification_key)
+        )
+
 
 settings = Settings()

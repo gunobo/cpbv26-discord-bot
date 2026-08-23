@@ -5,7 +5,7 @@ from sqlmodel import Session, select
 from app.core.config import settings
 from app.db.models import TeamRole, User, VerificationState
 from app.db.session import engine
-from app.discord_rest import revoke_role, sync_team_role
+from app.discord_rest import grant_verified_role, revoke_role, sync_team_role
 
 router = APIRouter(prefix="/internal", tags=["internal"], dependencies=[])
 
@@ -26,8 +26,14 @@ class CreateVerifyRequestBody(BaseModel):
 
 
 class VerifyRequestResponse(BaseModel):
-    token: str
-    verify_url: str
+    mode: str  # "hive" | "rules"
+    verify_url: str | None = None
+    role_granted: bool | None = None  # mode == "rules" 일 때만 의미 있음
+
+
+@router.get("/status", dependencies=[Depends(require_internal_key)])
+def get_status():
+    return {"hive_connected": settings.hive_connected, "hive_mock_mode": settings.hive_mock_mode}
 
 
 @router.post(
@@ -35,18 +41,41 @@ class VerifyRequestResponse(BaseModel):
     response_model=VerifyRequestResponse,
     dependencies=[Depends(require_internal_key)],
 )
-def create_verify_request(body: CreateVerifyRequestBody):
-    with Session(engine) as session:
-        state = VerificationState(discord_id=body.discord_id, guild_id=body.guild_id)
-        session.add(state)
-        session.commit()
-        session.refresh(state)
-        token = state.token
+async def create_verify_request(body: CreateVerifyRequestBody):
+    if settings.hive_connected:
+        with Session(engine) as session:
+            state = VerificationState(discord_id=body.discord_id, guild_id=body.guild_id)
+            session.add(state)
+            session.commit()
+            session.refresh(state)
+            token = state.token
 
-    return VerifyRequestResponse(
-        token=token,
-        verify_url=f"{settings.web_base_url}/verify/start?token={token}",
-    )
+        return VerifyRequestResponse(
+            mode="hive",
+            verify_url=f"{settings.web_base_url}/verify/start?token={token}",
+        )
+
+    # Hive 연동 전: 규칙 체크(봇에서 이미 확인됨)만으로 즉시 인증 완료 처리
+    with Session(engine) as session:
+        user = session.get(User, body.discord_id)
+        if user is None:
+            user = User(
+                discord_id=body.discord_id,
+                guild_id=body.guild_id,
+                verification_method="rules",
+            )
+        else:
+            user.verification_method = "rules"
+        session.add(user)
+        session.commit()
+
+    role_granted = True
+    try:
+        await grant_verified_role(body.guild_id, body.discord_id)
+    except RuntimeError:
+        role_granted = False
+
+    return VerifyRequestResponse(mode="rules", role_granted=role_granted)
 
 
 class LeaderboardEntry(BaseModel):
@@ -75,7 +104,8 @@ def get_leaderboard(guild_id: str):
 
 class UserInfoResponse(BaseModel):
     discord_id: str
-    player_id: str
+    verification_method: str
+    player_id: str | None
     team_name: str | None
     overall: int | None
     verified_at: str
@@ -93,6 +123,7 @@ def get_user_info(discord_id: str):
             raise HTTPException(status_code=404, detail="아직 인증하지 않은 사용자입니다")
         return UserInfoResponse(
             discord_id=user.discord_id,
+            verification_method=user.verification_method,
             player_id=user.player_id,
             team_name=user.team_name,
             overall=user.overall,

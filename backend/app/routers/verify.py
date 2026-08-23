@@ -90,9 +90,10 @@ async def verify_callback(request: Request, res: str | None = None, state: str |
         user = session.get(User, v_state.discord_id)
         if user is None:
             user = User(discord_id=v_state.discord_id, guild_id=v_state.guild_id,
-                        player_id=player_result.player_id, idp_user_id=idp_info.idp_user_id,
-                        idp_index=idp_info.idp_index)
+                        verification_method="hive", player_id=player_result.player_id,
+                        idp_user_id=idp_info.idp_user_id, idp_index=idp_info.idp_index)
         else:
+            user.verification_method = "hive"
             user.player_id = player_result.player_id
             user.idp_user_id = idp_info.idp_user_id
             user.idp_index = idp_info.idp_index

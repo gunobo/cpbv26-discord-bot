@@ -36,10 +36,12 @@ module.exports = {
     }
 
     const verifiedAt = new Date(user.verified_at);
+    const methodLabel = user.verification_method === "hive" ? "Hive 로그인" : "규칙 확인";
     const embed = new EmbedBuilder()
       .setColor(COLOR)
       .setTitle("내 컴프야v26 정보")
       .addFields(
+        { name: "인증 방식", value: methodLabel, inline: true },
         { name: "구단", value: user.team_name ?? "미등록", inline: true },
         { name: "오버롤", value: user.overall != null ? String(user.overall) : "미등록", inline: true },
         { name: "인증 일시", value: `<t:${Math.floor(verifiedAt.getTime() / 1000)}:f>` }

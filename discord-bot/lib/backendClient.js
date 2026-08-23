@@ -49,6 +49,10 @@ function listTeamRoles(guildId) {
   return backendFetch(`/internal/team-roles?guild_id=${encodeURIComponent(guildId)}`);
 }
 
+function getStatus() {
+  return backendFetch("/internal/status");
+}
+
 function getUser(discordId) {
   return backendFetch(`/internal/users/${encodeURIComponent(discordId)}`, {
     notFoundReturnsNull: true,
@@ -70,4 +74,5 @@ module.exports = {
   listTeamRoles,
   getUser,
   deleteUser,
+  getStatus,
 };

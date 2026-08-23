@@ -1,7 +1,15 @@
 require("dotenv").config();
 const { REST, Routes } = require("discord.js");
 
-const commands = ["verify", "leaderboard", "setstats", "teamrole", "myinfo", "unverify"].map(
+const commands = [
+  "verify",
+  "leaderboard",
+  "setstats",
+  "teamrole",
+  "myinfo",
+  "unverify",
+  "hivestatus",
+].map(
   (file) => require(`./commands/${file}`).data.toJSON()
 );
 
