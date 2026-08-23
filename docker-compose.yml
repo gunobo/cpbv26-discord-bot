@@ -17,5 +17,12 @@ services:
       - backend
     restart: unless-stopped
 
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - backend
+    restart: unless-stopped
+
 volumes:
   backend_data:

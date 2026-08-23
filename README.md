@@ -15,11 +15,27 @@ cd cpbv26-discord-bot
 
 cp backend/.env.example backend/.env
 cp discord-bot/.env.example discord-bot/.env
-# backend/.env, discord-bot/.env 채우기 (DISCORD_TOKEN 등)
+cp .env.example .env
+# backend/.env, discord-bot/.env, .env 채우기 (DISCORD_TOKEN 등)
 # discord-bot/.env의 BACKEND_URL은 http://backend:8000 으로 설정 (compose 서비스명)
 
 docker compose up -d --build
 ```
+
+### 공인 도메인 연결 (Cloudflare Tunnel)
+
+인증 링크를 실제로 다른 사람이 클릭하려면 `localhost`가 아닌 외부에서 접근 가능한 주소가 필요하다. `docker-compose.yml`에 `cloudflared` 서비스가 이미 포함되어 있으니, 아래 절차로 연결한다.
+
+1. [Cloudflare Zero Trust 대시보드](https://one.dash.cloudflare.com/) → **Networks → Tunnels → Create a tunnel**
+2. Connector 종류로 **Docker** 선택 → 터널 이름 입력(예: `cpbv26-discord-bot`) → 생성 화면에 나오는 `--token` 뒤의 긴 문자열을 복사
+3. 루트 `.env`의 `CLOUDFLARE_TUNNEL_TOKEN`에 붙여넣기
+4. 같은 화면(또는 터널 상세 → Public Hostname)에서 **Public Hostname** 추가:
+   - Subdomain/Domain: 원하는 서브도메인 (예: `cpbv26.내도메인.com`)
+   - Service: `HTTP` / URL: `backend:8000` (compose 서비스명 — cloudflared 컨테이너가 같은 네트워크에 있어서 가능)
+5. `backend/.env`의 `WEB_BASE_URL`, `HIVE_REDIRECT_URL`을 그 도메인(`https://cpbv26.내도메인.com`, `.../verify/callback`)으로 변경
+6. `docker compose up -d --build` 로 재기동
+
+이후 Hive 콘솔 키를 발급받으면 `HIVE_REDIRECT_URL`을 Hive 콘솔에도 **정확히 동일한 값으로** 등록해야 한다.
 
 슬래시 커맨드(/인증, /리더보드, /스탯설정, /구단역할)는 최초 1회만 등록하면 된다:
 
