@@ -1,0 +1,21 @@
+services:
+  backend:
+    build: ./backend
+    env_file: ./backend/.env
+    environment:
+      DATABASE_URL: sqlite:////app/data/app.db
+    volumes:
+      - backend_data:/app/data
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  discord-bot:
+    build: ./discord-bot
+    env_file: ./discord-bot/.env
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  backend_data:

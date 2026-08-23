@@ -7,9 +7,33 @@
 
 두 서비스는 내부 HTTP API(`X-Internal-Key` 헤더)로 통신한다. 전체 흐름은 [plan](.) 참고.
 
-## 1. backend 실행
+## 1. 라즈베리파이 배포 (Docker Compose)
 
 ```bash
+git clone https://github.com/gunobo/cpbv26-discord-bot.git
+cd cpbv26-discord-bot
+
+cp backend/.env.example backend/.env
+cp discord-bot/.env.example discord-bot/.env
+# backend/.env, discord-bot/.env 채우기 (DISCORD_TOKEN 등)
+# discord-bot/.env의 BACKEND_URL은 http://backend:8000 으로 설정 (compose 서비스명)
+
+docker compose up -d --build
+```
+
+슬래시 커맨드(/인증, /리더보드, /스탯설정)는 최초 1회만 등록하면 된다:
+
+```bash
+docker compose run --rm discord-bot node deploy-commands.js
+```
+
+로그 확인: `docker compose logs -f`, 재배포: `git pull && docker compose up -d --build`.
+DB(`app.db`)는 `backend_data` 볼륨에 저장되어 컨테이너를 재생성해도 유지된다.
+
+## 2. 로컬 개발 (Docker 없이, 선택)
+
+```bash
+# backend
 cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
@@ -17,18 +41,16 @@ cp .env.example .env
 uvicorn app.main:app --reload --port 8000
 ```
 
-기본값은 `HIVE_MOCK_MODE=true` — 실제 Hive 서버 없이 인증 플로우 전체를 테스트할 수 있다.
-
-## 2. discord-bot 실행
-
 ```bash
+# discord-bot (다른 터미널)
 cd discord-bot
 npm install
-cp .env.example .env   # DISCORD_TOKEN, DISCORD_CLIENT_ID, DISCORD_GUILD_ID, VERIFIED_ROLE_ID,
-                        # INTERNAL_API_KEY(backend/.env와 동일 값) 채우기
-npm run deploy-commands # 슬래시 커맨드(/인증, /리더보드, /스탯설정)를 길드에 등록
+cp .env.example .env
+npm run deploy-commands
 npm run dev
 ```
+
+기본값은 `HIVE_MOCK_MODE=true` — 실제 Hive 서버 없이 인증 플로우 전체를 테스트할 수 있다.
 
 ## 3. 사용 흐름
 
