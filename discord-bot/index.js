@@ -4,7 +4,7 @@ const { Client, Collection, GatewayIntentBits, Events } = require("discord.js");
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] });
 
 client.commands = new Collection();
-for (const file of ["verify", "leaderboard", "setstats", "teamrole"]) {
+for (const file of ["verify", "leaderboard", "setstats", "teamrole", "myinfo", "unverify"]) {
   const command = require(`./commands/${file}`);
   client.commands.set(command.data.name, command);
 }

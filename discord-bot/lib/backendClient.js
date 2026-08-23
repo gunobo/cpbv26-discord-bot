@@ -10,6 +10,9 @@ async function backendFetch(path, options = {}) {
       ...(options.headers || {}),
     },
   });
+  if (res.status === 404 && options.notFoundReturnsNull) {
+    return null;
+  }
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     throw new Error(`backend ${path} 실패 (${res.status}): ${body}`);
@@ -46,10 +49,25 @@ function listTeamRoles(guildId) {
   return backendFetch(`/internal/team-roles?guild_id=${encodeURIComponent(guildId)}`);
 }
 
+function getUser(discordId) {
+  return backendFetch(`/internal/users/${encodeURIComponent(discordId)}`, {
+    notFoundReturnsNull: true,
+  });
+}
+
+function deleteUser(discordId) {
+  return backendFetch(`/internal/users/${encodeURIComponent(discordId)}`, {
+    method: "DELETE",
+    notFoundReturnsNull: true,
+  });
+}
+
 module.exports = {
   createVerifyRequest,
   getLeaderboard,
   updateUserStats,
   setTeamRole,
   listTeamRoles,
+  getUser,
+  deleteUser,
 };

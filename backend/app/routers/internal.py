@@ -5,7 +5,7 @@ from sqlmodel import Session, select
 from app.core.config import settings
 from app.db.models import TeamRole, User, VerificationState
 from app.db.session import engine
-from app.discord_rest import sync_team_role
+from app.discord_rest import revoke_role, sync_team_role
 
 router = APIRouter(prefix="/internal", tags=["internal"], dependencies=[])
 
@@ -71,6 +71,49 @@ def get_leaderboard(guild_id: str):
         LeaderboardEntry(discord_id=u.discord_id, team_name=u.team_name, overall=u.overall)
         for u in users
     ]
+
+
+class UserInfoResponse(BaseModel):
+    discord_id: str
+    player_id: str
+    team_name: str | None
+    overall: int | None
+    verified_at: str
+
+
+@router.get(
+    "/users/{discord_id}",
+    response_model=UserInfoResponse,
+    dependencies=[Depends(require_internal_key)],
+)
+def get_user_info(discord_id: str):
+    with Session(engine) as session:
+        user = session.get(User, discord_id)
+        if user is None:
+            raise HTTPException(status_code=404, detail="아직 인증하지 않은 사용자입니다")
+        return UserInfoResponse(
+            discord_id=user.discord_id,
+            player_id=user.player_id,
+            team_name=user.team_name,
+            overall=user.overall,
+            verified_at=user.verified_at.isoformat(),
+        )
+
+
+@router.delete("/users/{discord_id}", dependencies=[Depends(require_internal_key)])
+async def delete_user(discord_id: str):
+    with Session(engine) as session:
+        user = session.get(User, discord_id)
+        if user is None:
+            raise HTTPException(status_code=404, detail="인증 기록이 없는 사용자입니다")
+        guild_id = user.guild_id
+        team_role_ids = _team_role_ids(session, guild_id)
+        session.delete(user)
+        session.commit()
+
+    await revoke_role(guild_id, discord_id, settings.verified_role_id)
+    await sync_team_role(guild_id, discord_id, None, team_role_ids)
+    return {"ok": True}
 
 
 class UpdateUserStatsBody(BaseModel):

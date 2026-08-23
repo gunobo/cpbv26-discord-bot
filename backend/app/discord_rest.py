@@ -18,6 +18,14 @@ async def grant_verified_role(guild_id: str, user_id: str) -> None:
         raise RuntimeError(f"역할 부여 실패 ({resp.status_code}): {resp.text}")
 
 
+async def revoke_role(guild_id: str, user_id: str, role_id: str) -> None:
+    if not settings.discord_token or not role_id:
+        return
+    url = f"{DISCORD_API}/guilds/{guild_id}/members/{user_id}/roles/{role_id}"
+    async with httpx.AsyncClient(timeout=10) as client:
+        await client.delete(url, headers={"Authorization": f"Bot {settings.discord_token}"})
+
+
 async def sync_team_role(
     guild_id: str, user_id: str, team_name: str | None, team_role_ids: dict[str, str]
 ) -> None:
