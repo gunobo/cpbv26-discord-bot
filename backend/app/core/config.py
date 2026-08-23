@@ -23,6 +23,8 @@ class Settings(BaseSettings):
 
     database_url: str = "sqlite:///./app.db"
 
+    stats_refresh_interval_seconds: int = 300
+
     @property
     def hive_connected(self) -> bool:
         """실제 Hive 연동이 가능한 상태인지. 모킹 모드거나 콘솔 키가 하나라도

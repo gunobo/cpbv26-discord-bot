@@ -89,5 +89,5 @@ npm run dev
 
 - **Hive 콘솔 키**: `appid`/`gindex`/`hive_certification_key` 발급받아 `backend/.env`에 채우고 `HIVE_MOCK_MODE=false`로 변경. `HIVE_REDIRECT_URL`을 Hive 콘솔에 등록한 값과 정확히 일치시켜야 한다.
 - **호스팅**: `WEB_BASE_URL`/`HIVE_REDIRECT_URL`은 공인 HTTPS 도메인이어야 한다 (로컬 개발 중에는 mock 모드로 충분).
-- **게임 데이터 API**: 컴프야v26 팀 정보/오버롤을 조회할 수 있는 공식 공개 API는 없다(확인 완료). 컴투스로부터 비공개 API를 받으면 `backend/app/gamedata/provider.py`의 `GameDataProvider`를 구현한 새 클래스를 만들어 `backend/app/routers/verify.py`의 `game_data_provider` 인스턴스만 교체하면 된다.
+- **게임 데이터 API**: 컴프야v26 팀 정보/오버롤을 조회할 수 있는 공식 공개 API는 없다(확인 완료). 컴투스로부터 비공개 API를 받으면 `backend/app/gamedata/provider.py`의 `GameDataProvider`를 구현한 새 클래스를 만들어 `backend/app/routers/verify.py`의 `game_data_provider` 인스턴스만 교체하면 된다. 교체 즉시 `backend/app/scheduler.py`가 `STATS_REFRESH_INTERVAL_SECONDS`(기본 300초) 주기로 인증된 유저 전원의 팀/오버롤을 자동으로 재조회·갱신하고 구단 역할도 동기화한다 — 지금은 provider가 mock이라 아무 값도 안 바뀐다.
 - **역할 순서**: 봇의 역할이 `VERIFIED_ROLE_ID`와 `/구단역할`로 등록한 모든 역할보다 서버 역할 목록에서 위에 있어야 한다. 아래에 있으면 역할 부여가 403 에러로 실패한다.
