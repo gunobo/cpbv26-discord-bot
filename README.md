@@ -8,7 +8,13 @@ Hive 콘솔 키가 아직 없어도 바로 운영할 수 있도록, `/인증`의
 - 현재 상태는 운영자가 `/하이브상태`로 언제든 확인 가능. 나중에 키를 채우고 `HIVE_MOCK_MODE=false`로 바꾸면 재기동만으로 자동 전환되며, 기존에 "규칙 확인"으로 인증된 유저도 다시 `/인증`을 실행하면 Hive 인증으로 업그레이드된다.
 
 - `discord-bot/` — Node.js(discord.js) 슬래시 커맨드/버튼 UI
-- `backend/` — Python(FastAPI) Hive 인증, DB, 게임데이터, 역할 부여 담당
+- `backend/` — Python(FastAPI). 계층별이 아니라 **기능별 디렉토리**로 구성되어 있다: 각 폴더가 자기 라우터(`router.py`)와 DB 모델(`models.py`)을 함께 갖는다.
+  - `app/verify/` — Hive 로그인/규칙 인증 (`router.py`, `models.py`, `hive/`, `cookies.py`)
+  - `app/users/` — 인증된 유저 조회/수정/삭제 (`router.py`, `models.py`)
+  - `app/leaderboard/` — 리더보드 조회 (`router.py`)
+  - `app/teamrole/` — 구단-역할 매핑 (`router.py`, `models.py`, `service.py`)
+  - `app/community/` — 공식 커뮤니티 이벤트/쿠폰 조회 (`router.py`, `client.py`)
+  - `app/gamedata/`, `app/discord_rest.py`, `app/db/session.py`, `app/core/` — 여러 기능이 함께 쓰는 공용 인프라
 
 두 서비스는 내부 HTTP API(`X-Internal-Key` 헤더)로 통신한다. 전체 흐름은 [plan](.) 참고.
 
@@ -90,5 +96,5 @@ npm run dev
 
 - **Hive 콘솔 키**: `appid`/`gindex`/`hive_certification_key` 발급받아 `backend/.env`에 채우고 `HIVE_MOCK_MODE=false`로 변경. `HIVE_REDIRECT_URL`을 Hive 콘솔에 등록한 값과 정확히 일치시켜야 한다.
 - **호스팅**: `WEB_BASE_URL`/`HIVE_REDIRECT_URL`은 공인 HTTPS 도메인이어야 한다 (로컬 개발 중에는 mock 모드로 충분).
-- **게임 데이터 API**: 컴프야v26 팀 정보/오버롤을 조회할 수 있는 공식 공개 API는 없다(확인 완료). 컴투스로부터 비공개 API를 받으면 `backend/app/gamedata/provider.py`의 `GameDataProvider`를 구현한 새 클래스를 만들어 `backend/app/routers/verify.py`의 `game_data_provider` 인스턴스만 교체하면 된다. 교체 즉시 `backend/app/scheduler.py`가 `STATS_REFRESH_INTERVAL_SECONDS`(기본 300초) 주기로 인증된 유저 전원의 팀/오버롤을 자동으로 재조회·갱신하고 구단 역할도 동기화한다 — 지금은 provider가 mock이라 아무 값도 안 바뀐다.
+- **게임 데이터 API**: 컴프야v26 팀 정보/오버롤을 조회할 수 있는 공식 공개 API는 없다(확인 완료). 컴투스로부터 비공개 API를 받으면 `backend/app/gamedata/provider.py`의 `GameDataProvider`를 구현한 새 클래스를 만들어 `backend/app/verify/router.py`의 `game_data_provider` 인스턴스만 교체하면 된다. 교체 즉시 `backend/app/scheduler.py`가 `STATS_REFRESH_INTERVAL_SECONDS`(기본 300초) 주기로 인증된 유저 전원의 팀/오버롤을 자동으로 재조회·갱신하고 구단 역할도 동기화한다 — 지금은 provider가 mock이라 아무 값도 안 바뀐다.
 - **역할 순서**: 봇의 역할이 `VERIFIED_ROLE_ID`와 `/구단역할`로 등록한 모든 역할보다 서버 역할 목록에서 위에 있어야 한다. 아래에 있으면 역할 부여가 403 에러로 실패한다.

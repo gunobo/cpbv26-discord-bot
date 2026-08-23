@@ -10,17 +10,13 @@ from datetime import datetime
 
 from sqlmodel import Session, select
 
-from app.db.models import TeamRole, User
 from app.db.session import engine
 from app.discord_rest import sync_team_role
 from app.gamedata.provider import GameDataProvider
+from app.teamrole.service import get_team_role_ids
+from app.users.models import User
 
 logger = logging.getLogger(__name__)
-
-
-def _team_role_ids(session: Session, guild_id: str) -> dict[str, str]:
-    rows = session.exec(select(TeamRole).where(TeamRole.guild_id == guild_id)).all()
-    return {row.team_name: row.role_id for row in rows}
 
 
 async def refresh_all_stats(game_data_provider: GameDataProvider) -> None:
@@ -52,7 +48,7 @@ async def refresh_all_stats(game_data_provider: GameDataProvider) -> None:
             user.stats_updated_at = datetime.utcnow()
             session.add(user)
             session.commit()
-            guild_id, team_role_ids = user.guild_id, _team_role_ids(session, user.guild_id)
+            guild_id, team_role_ids = user.guild_id, get_team_role_ids(session, user.guild_id)
 
         try:
             await sync_team_role(guild_id, discord_id, stats.team_name, team_role_ids)

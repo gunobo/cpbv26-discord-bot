@@ -5,7 +5,7 @@ Hive 콘솔 키(appid/gindex/hive_certification_key)가 발급되기 전까지
 """
 import uuid
 
-from app.hive.types import IdpInfo, PlayerIdResult
+from app.verify.hive.types import IdpInfo, PlayerIdResult
 
 
 def mock_login_redirect_target(callback_url: str) -> str:

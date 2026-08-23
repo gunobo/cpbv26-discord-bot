@@ -5,7 +5,7 @@ from urllib.parse import quote, unquote
 import httpx
 
 from app.core.config import settings
-from app.hive.types import IdpInfo, PlayerIdResult
+from app.verify.hive.types import IdpInfo, PlayerIdResult
 
 WEBLOGIN_HOSTS = {
     "production": "https://weblogin.withhive.com",

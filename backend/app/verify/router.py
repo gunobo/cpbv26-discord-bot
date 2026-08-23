@@ -1,17 +1,22 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlmodel import Session, select
+from pydantic import BaseModel
+from sqlmodel import Session
 
 from app.core.config import settings
-from app.core.cookies import COOKIE_MAX_AGE_SECONDS, COOKIE_NAME, sign_token, unsign_token
-from app.db.models import TeamRole, User, VerificationState
+from app.core.internal_auth import require_internal_key
 from app.db.session import engine
 from app.discord_rest import grant_verified_role, sync_team_role
 from app.gamedata.mock_provider import MockGameDataProvider
-from app.hive import client as hive_client
-from app.hive import mock as hive_mock
+from app.teamrole.service import get_team_role_ids
+from app.users.models import User
+from app.verify.cookies import COOKIE_MAX_AGE_SECONDS, COOKIE_NAME, sign_token, unsign_token
+from app.verify.hive import client as hive_client
+from app.verify.hive import mock as hive_mock
+from app.verify.models import VerificationState
 
 router = APIRouter(prefix="/verify", tags=["verify"])
+internal_router = APIRouter(prefix="/internal", tags=["verify"], dependencies=[Depends(require_internal_key)])
 
 game_data_provider = MockGameDataProvider()
 
@@ -108,10 +113,7 @@ async def verify_callback(request: Request, res: str | None = None, state: str |
         session.commit()
 
         discord_id, guild_id, team_name = user.discord_id, user.guild_id, user.team_name
-        team_role_ids = {
-            row.team_name: row.role_id
-            for row in session.exec(select(TeamRole).where(TeamRole.guild_id == guild_id)).all()
-        }
+        team_role_ids = get_team_role_ids(session, guild_id)
 
     try:
         await grant_verified_role(guild_id, discord_id)
@@ -126,3 +128,57 @@ async def verify_callback(request: Request, res: str | None = None, state: str |
     resp = _page("인증이 완료되었습니다", "디스코드로 돌아가서 /리더보드 를 사용해보세요.")
     resp.delete_cookie(COOKIE_NAME)
     return resp
+
+
+class CreateVerifyRequestBody(BaseModel):
+    discord_id: str
+    guild_id: str
+
+
+class VerifyRequestResponse(BaseModel):
+    mode: str  # "hive" | "rules"
+    verify_url: str | None = None
+    role_granted: bool | None = None  # mode == "rules" 일 때만 의미 있음
+
+
+@internal_router.get("/status")
+def get_status():
+    return {"hive_connected": settings.hive_connected, "hive_mock_mode": settings.hive_mock_mode}
+
+
+@internal_router.post("/verify-requests", response_model=VerifyRequestResponse)
+async def create_verify_request(body: CreateVerifyRequestBody):
+    if settings.hive_connected:
+        with Session(engine) as session:
+            state = VerificationState(discord_id=body.discord_id, guild_id=body.guild_id)
+            session.add(state)
+            session.commit()
+            session.refresh(state)
+            token = state.token
+
+        return VerifyRequestResponse(
+            mode="hive",
+            verify_url=f"{settings.web_base_url}/verify/start?token={token}",
+        )
+
+    # Hive 연동 전: 규칙 체크(봇에서 이미 확인됨)만으로 즉시 인증 완료 처리
+    with Session(engine) as session:
+        user = session.get(User, body.discord_id)
+        if user is None:
+            user = User(
+                discord_id=body.discord_id,
+                guild_id=body.guild_id,
+                verification_method="rules",
+            )
+        else:
+            user.verification_method = "rules"
+        session.add(user)
+        session.commit()
+
+    role_granted = True
+    try:
+        await grant_verified_role(body.guild_id, body.discord_id)
+    except RuntimeError:
+        role_granted = False
+
+    return VerifyRequestResponse(mode="rules", role_granted=role_granted)
