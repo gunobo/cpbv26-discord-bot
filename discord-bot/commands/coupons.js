@@ -58,15 +58,10 @@ module.exports = {
       return;
     }
 
-    const links = coupons
-      .filter((c) => c.url)
-      .map((c) => `[${c.code}](${c.url})`)
-      .join(" · ");
-
     const embed = new EmbedBuilder()
       .setColor(COLOR)
       .setTitle("컴프야v26 사용 가능 쿠폰")
-      .setDescription(buildTable(coupons) + (links ? `\n🔗 등록 바로가기: ${links}` : ""))
+      .setDescription(buildTable(coupons))
       .setFooter({ text: "출처: 컴프야v26 공식 커뮤니티 · 계정당 1회만 사용 가능 · 보상이 여러 개면 일부만 표시됨" });
 
     await interaction.editReply({ embeds: [embed] });
