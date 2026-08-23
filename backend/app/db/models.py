@@ -1,0 +1,34 @@
+import uuid
+from datetime import datetime, timedelta
+
+from sqlmodel import SQLModel, Field
+
+
+def new_token() -> str:
+    return uuid.uuid4().hex
+
+
+class VerificationState(SQLModel, table=True):
+    token: str = Field(default_factory=new_token, primary_key=True)
+    discord_id: str
+    guild_id: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    expires_at: datetime = Field(
+        default_factory=lambda: datetime.utcnow() + timedelta(minutes=10)
+    )
+    consumed: bool = False
+
+    def is_valid(self) -> bool:
+        return not self.consumed and datetime.utcnow() < self.expires_at
+
+
+class User(SQLModel, table=True):
+    discord_id: str = Field(primary_key=True)
+    guild_id: str
+    player_id: str
+    idp_user_id: str
+    idp_index: int
+    team_name: str | None = None
+    overall: int | None = None
+    verified_at: datetime = Field(default_factory=datetime.utcnow)
+    stats_updated_at: datetime | None = None
