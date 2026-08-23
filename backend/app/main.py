@@ -2,6 +2,7 @@ import asyncio
 
 from fastapi import FastAPI
 
+from app.community.cache import run_coupon_cache_scheduler
 from app.community.router import router as community_router
 from app.core.config import settings
 from app.db.session import init_db
@@ -26,16 +27,20 @@ app.include_router(community_router)
 @app.on_event("startup")
 async def on_startup():
     init_db()
-    app.state.scheduler_task = asyncio.create_task(
+    app.state.stats_scheduler_task = asyncio.create_task(
         run_scheduler(game_data_provider, settings.stats_refresh_interval_seconds)
+    )
+    app.state.coupon_scheduler_task = asyncio.create_task(
+        run_coupon_cache_scheduler(settings.coupon_refresh_interval_seconds)
     )
 
 
 @app.on_event("shutdown")
 async def on_shutdown():
-    task = getattr(app.state, "scheduler_task", None)
-    if task is not None:
-        task.cancel()
+    for attr in ("stats_scheduler_task", "coupon_scheduler_task"):
+        task = getattr(app.state, attr, None)
+        if task is not None:
+            task.cancel()
 
 
 @app.get("/health")

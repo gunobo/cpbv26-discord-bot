@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from app.community.client import CommunityFetchError, fetch_coupons, fetch_ongoing_events
+from app.community.cache import get_cached_coupons
+from app.community.client import CommunityFetchError, fetch_ongoing_events
 from app.core.internal_auth import require_internal_key
 
 router = APIRouter(prefix="/internal", tags=["community"], dependencies=[Depends(require_internal_key)])
@@ -30,9 +31,5 @@ class CouponEntry(BaseModel):
 
 
 @router.get("/coupons", response_model=list[CouponEntry])
-async def get_coupons():
-    try:
-        coupons = await fetch_coupons()
-    except CommunityFetchError as exc:
-        raise HTTPException(status_code=502, detail=str(exc))
-    return [CouponEntry(**c) for c in coupons]
+def get_coupons():
+    return [CouponEntry(**c) for c in get_cached_coupons()]

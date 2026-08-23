@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./app.db"
 
     stats_refresh_interval_seconds: int = 300
+    coupon_refresh_interval_seconds: int = 600
 
     @property
     def hive_connected(self) -> bool:
