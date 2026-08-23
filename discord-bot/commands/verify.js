@@ -1,26 +1,95 @@
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
+const {
+  SlashCommandBuilder,
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+} = require("discord.js");
+const { createVerifyRequest } = require("../lib/backendClient");
 
-const RULES_TEXT = (process.env.SERVER_RULES || "규칙이 아직 설정되지 않았습니다.").replace(/\\n/g, "\n");
+const COLOR = 0x2b6cb0;
+const COLOR_ERROR = 0xe53e3e;
+
+async function hasAgreedRules(interaction) {
+  const channelId = process.env.RULES_CHANNEL_ID;
+  const messageId = process.env.RULES_MESSAGE_ID;
+  const emoji = process.env.RULES_EMOJI || "✅";
+  if (!channelId || !messageId) return false;
+
+  const channel = await interaction.guild.channels.fetch(channelId);
+  const message = await channel.messages.fetch(messageId);
+  const reaction = message.reactions.cache.find(
+    (r) => r.emoji.name === emoji || r.emoji.toString() === emoji
+  );
+  if (!reaction) return false;
+
+  const users = await reaction.users.fetch();
+  return users.has(interaction.user.id);
+}
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("인증")
-    .setDescription("서버 규칙에 동의하고 Hive 계정으로 인증합니다."),
+    .setDescription("Hive 계정으로 컴프야v26 인증을 진행합니다."),
 
   async execute(interaction) {
+    await interaction.deferReply({ ephemeral: true });
+
+    let agreed;
+    try {
+      agreed = await hasAgreedRules(interaction);
+    } catch (err) {
+      console.error(err);
+      await interaction.editReply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(COLOR_ERROR)
+            .setTitle("확인 실패")
+            .setDescription("규칙 동의 여부를 확인하는 중 오류가 발생했습니다. 관리자에게 문의해주세요."),
+        ],
+      });
+      return;
+    }
+
+    if (!agreed) {
+      await interaction.editReply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(COLOR_ERROR)
+            .setTitle("규칙 동의가 필요합니다")
+            .setDescription("먼저 규칙 메시지에 반응(체크)해주세요. 완료 후 다시 `/인증`을 실행해주세요."),
+        ],
+      });
+      return;
+    }
+
+    let verifyUrl;
+    try {
+      const result = await createVerifyRequest(interaction.user.id, interaction.guildId);
+      verifyUrl = result.verify_url;
+    } catch (err) {
+      console.error(err);
+      await interaction.editReply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(COLOR_ERROR)
+            .setTitle("인증 링크 생성 실패")
+            .setDescription("잠시 후 다시 시도해주세요."),
+        ],
+      });
+      return;
+    }
+
     const embed = new EmbedBuilder()
-      .setTitle("서버 규칙")
-      .setDescription(RULES_TEXT)
-      .setColor(0x2b6cb0)
-      .setFooter({ text: "동의 버튼을 누르면 Hive 로그인 인증이 시작됩니다." });
+      .setColor(COLOR)
+      .setTitle("컴프야v26 인증")
+      .setDescription("아래 버튼을 눌러 Hive 계정으로 로그인해주세요.")
+      .setFooter({ text: "링크는 10분간 유효합니다." });
 
     const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("agree_rules")
-        .setLabel("규칙에 동의합니다")
-        .setStyle(ButtonStyle.Success)
+      new ButtonBuilder().setLabel("Hive로 인증하기").setStyle(ButtonStyle.Link).setURL(verifyUrl)
     );
 
-    await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+    await interaction.editReply({ embeds: [embed], components: [row] });
   },
 };

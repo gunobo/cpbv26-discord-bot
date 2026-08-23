@@ -3,10 +3,16 @@ from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from app.core.config import settings
-from app.db.models import User, VerificationState
+from app.db.models import TeamRole, User, VerificationState
 from app.db.session import engine
+from app.discord_rest import sync_team_role
 
 router = APIRouter(prefix="/internal", tags=["internal"], dependencies=[])
+
+
+def _team_role_ids(session: Session, guild_id: str) -> dict[str, str]:
+    rows = session.exec(select(TeamRole).where(TeamRole.guild_id == guild_id)).all()
+    return {row.team_name: row.role_id for row in rows}
 
 
 def require_internal_key(x_internal_key: str = Header(default="")) -> None:
@@ -73,7 +79,7 @@ class UpdateUserStatsBody(BaseModel):
 
 
 @router.patch("/users/{discord_id}", dependencies=[Depends(require_internal_key)])
-def update_user_stats(discord_id: str, body: UpdateUserStatsBody):
+async def update_user_stats(discord_id: str, body: UpdateUserStatsBody):
     with Session(engine) as session:
         user = session.get(User, discord_id)
         if user is None:
@@ -82,4 +88,47 @@ def update_user_stats(discord_id: str, body: UpdateUserStatsBody):
         user.overall = body.overall
         session.add(user)
         session.commit()
+        guild_id, team_role_ids = user.guild_id, _team_role_ids(session, user.guild_id)
+
+    role_synced = True
+    try:
+        await sync_team_role(guild_id, discord_id, body.team_name, team_role_ids)
+    except RuntimeError:
+        role_synced = False
+
+    return {"ok": True, "role_synced": role_synced}
+
+
+class SetTeamRoleBody(BaseModel):
+    guild_id: str
+    team_name: str
+    role_id: str
+
+
+@router.put("/team-roles", dependencies=[Depends(require_internal_key)])
+def set_team_role(body: SetTeamRoleBody):
+    with Session(engine) as session:
+        row = session.get(TeamRole, (body.guild_id, body.team_name))
+        if row is None:
+            row = TeamRole(guild_id=body.guild_id, team_name=body.team_name, role_id=body.role_id)
+        else:
+            row.role_id = body.role_id
+        session.add(row)
+        session.commit()
     return {"ok": True}
+
+
+class TeamRoleEntry(BaseModel):
+    team_name: str
+    role_id: str
+
+
+@router.get(
+    "/team-roles",
+    response_model=list[TeamRoleEntry],
+    dependencies=[Depends(require_internal_key)],
+)
+def list_team_roles(guild_id: str):
+    with Session(engine) as session:
+        rows = session.exec(select(TeamRole).where(TeamRole.guild_id == guild_id)).all()
+    return [TeamRoleEntry(team_name=r.team_name, role_id=r.role_id) for r in rows]

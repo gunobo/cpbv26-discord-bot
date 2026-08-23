@@ -1,5 +1,8 @@
-const { SlashCommandBuilder, PermissionFlagsBits } = require("discord.js");
+const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require("discord.js");
 const { updateUserStats } = require("../lib/backendClient");
+
+const COLOR = 0x2b6cb0;
+const COLOR_ERROR = 0xe53e3e;
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -19,16 +22,34 @@ module.exports = {
 
     await interaction.deferReply({ ephemeral: true });
 
+    let result;
     try {
-      await updateUserStats(target.id, team, overall);
+      result = await updateUserStats(target.id, team, overall);
     } catch (err) {
       console.error(err);
-      await interaction.editReply(
-        "스탯 업데이트에 실패했습니다. 대상 유저가 먼저 /인증을 완료했는지 확인해주세요."
-      );
+      await interaction.editReply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(COLOR_ERROR)
+            .setTitle("스탯 업데이트 실패")
+            .setDescription("대상 유저가 먼저 /인증을 완료했는지 확인해주세요."),
+        ],
+      });
       return;
     }
 
-    await interaction.editReply(`✅ <@${target.id}> 의 스탯을 갱신했습니다 — ${team} · OVR ${overall}`);
+    const embed = new EmbedBuilder()
+      .setColor(result.role_synced ? COLOR : 0xecc94b)
+      .setTitle("스탯 갱신 완료")
+      .setDescription(`<@${target.id}> — ${team} · OVR ${overall}`);
+
+    if (!result.role_synced) {
+      embed.addFields({
+        name: "⚠️ 구단 역할 부여 실패",
+        value: `\`/구단역할 설정\`으로 "${team}" 매핑이 되어있는지 확인해주세요.`,
+      });
+    }
+
+    await interaction.editReply({ embeds: [embed] });
   },
 };

@@ -1,6 +1,9 @@
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const { getLeaderboard } = require("../lib/backendClient");
 
+const COLOR = 0x2b6cb0;
+const COLOR_ERROR = 0xe53e3e;
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("리더보드")
@@ -10,7 +13,15 @@ module.exports = {
     const verifiedRoleId = process.env.VERIFIED_ROLE_ID;
     const hasRole = interaction.member.roles.cache.has(verifiedRoleId);
     if (!hasRole) {
-      await interaction.reply({ content: "먼저 `/인증` 을 진행해주세요.", ephemeral: true });
+      await interaction.reply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(COLOR_ERROR)
+            .setTitle("인증이 필요합니다")
+            .setDescription("먼저 `/인증` 을 진행해주세요."),
+        ],
+        ephemeral: true,
+      });
       return;
     }
 
@@ -21,14 +32,23 @@ module.exports = {
       entries = await getLeaderboard(interaction.guildId);
     } catch (err) {
       console.error(err);
-      await interaction.editReply("리더보드를 불러오는 중 오류가 발생했습니다.");
+      await interaction.editReply({
+        embeds: [new EmbedBuilder().setColor(COLOR_ERROR).setTitle("리더보드를 불러오지 못했습니다")],
+      });
       return;
     }
 
     const ranked = entries.filter((e) => e.overall != null).slice(0, 20);
 
     if (ranked.length === 0) {
-      await interaction.editReply("아직 등록된 스탯이 없습니다.");
+      await interaction.editReply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(COLOR)
+            .setTitle("컴프야v26 리더보드")
+            .setDescription("아직 등록된 스탯이 없습니다."),
+        ],
+      });
       return;
     }
 
@@ -41,7 +61,7 @@ module.exports = {
     const embed = new EmbedBuilder()
       .setTitle("컴프야v26 리더보드")
       .setDescription(lines.join("\n"))
-      .setColor(0x2b6cb0);
+      .setColor(COLOR);
 
     await interaction.editReply({ embeds: [embed] });
   },

@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.core.config import settings
 from app.core.cookies import COOKIE_MAX_AGE_SECONDS, COOKIE_NAME, sign_token, unsign_token
-from app.db.models import User, VerificationState
+from app.db.models import TeamRole, User, VerificationState
 from app.db.session import engine
-from app.discord_rest import grant_verified_role
+from app.discord_rest import grant_verified_role, sync_team_role
 from app.gamedata.mock_provider import MockGameDataProvider
 from app.hive import client as hive_client
 from app.hive import mock as hive_mock
@@ -106,12 +106,21 @@ async def verify_callback(request: Request, res: str | None = None, state: str |
         session.add(v_state)
         session.commit()
 
-        discord_id, guild_id = user.discord_id, user.guild_id
+        discord_id, guild_id, team_name = user.discord_id, user.guild_id, user.team_name
+        team_role_ids = {
+            row.team_name: row.role_id
+            for row in session.exec(select(TeamRole).where(TeamRole.guild_id == guild_id)).all()
+        }
 
     try:
         await grant_verified_role(guild_id, discord_id)
     except RuntimeError as exc:
         return _page("역할 부여 중 오류가 발생했습니다", f"관리자에게 문의해주세요. ({exc})")
+
+    try:
+        await sync_team_role(guild_id, discord_id, team_name, team_role_ids)
+    except RuntimeError:
+        pass  # 팀 정보가 아직 없거나(모킹 상태) 역할 매핑이 안 된 경우 — 인증 자체는 성공으로 처리
 
     resp = _page("인증이 완료되었습니다", "디스코드로 돌아가서 /리더보드 를 사용해보세요.")
     resp.delete_cookie(COOKIE_NAME)

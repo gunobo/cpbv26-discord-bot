@@ -35,4 +35,21 @@ function updateUserStats(discordId, teamName, overall) {
   });
 }
 
-module.exports = { createVerifyRequest, getLeaderboard, updateUserStats };
+function setTeamRole(guildId, teamName, roleId) {
+  return backendFetch("/internal/team-roles", {
+    method: "PUT",
+    body: JSON.stringify({ guild_id: guildId, team_name: teamName, role_id: roleId }),
+  });
+}
+
+function listTeamRoles(guildId) {
+  return backendFetch(`/internal/team-roles?guild_id=${encodeURIComponent(guildId)}`);
+}
+
+module.exports = {
+  createVerifyRequest,
+  getLeaderboard,
+  updateUserStats,
+  setTeamRole,
+  listTeamRoles,
+};

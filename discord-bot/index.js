@@ -1,11 +1,10 @@
 require("dotenv").config();
 const { Client, Collection, GatewayIntentBits, Events } = require("discord.js");
-const { CUSTOM_ID: AGREE_BUTTON_ID, handleAgreeButton } = require("./interactions/agreeButton");
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] });
 
 client.commands = new Collection();
-for (const file of ["verify", "leaderboard", "setstats"]) {
+for (const file of ["verify", "leaderboard", "setstats", "teamrole"]) {
   const command = require(`./commands/${file}`);
   client.commands.set(command.data.name, command);
 }
@@ -20,11 +19,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const command = client.commands.get(interaction.commandName);
       if (!command) return;
       await command.execute(interaction);
-      return;
-    }
-
-    if (interaction.isButton() && interaction.customId === AGREE_BUTTON_ID) {
-      await handleAgreeButton(interaction);
       return;
     }
   } catch (err) {
