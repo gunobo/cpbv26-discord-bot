@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
+from app.community import CommunityFetchError, fetch_ongoing_events
 from app.core.config import settings
 from app.db.models import TeamRole, User, VerificationState
 from app.db.session import engine
@@ -206,3 +207,22 @@ def list_team_roles(guild_id: str):
     with Session(engine) as session:
         rows = session.exec(select(TeamRole).where(TeamRole.guild_id == guild_id)).all()
     return [TeamRoleEntry(team_name=r.team_name, role_id=r.role_id) for r in rows]
+
+
+class EventEntry(BaseModel):
+    title: str
+    url: str
+    regdate: str
+
+
+@router.get(
+    "/events",
+    response_model=list[EventEntry],
+    dependencies=[Depends(require_internal_key)],
+)
+async def get_events():
+    try:
+        events = await fetch_ongoing_events()
+    except CommunityFetchError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+    return [EventEntry(**e) for e in events]

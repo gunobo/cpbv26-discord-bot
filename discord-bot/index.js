@@ -12,6 +12,7 @@ for (const file of [
   "myinfo",
   "unverify",
   "hivestatus",
+  "events",
 ]) {
   const command = require(`./commands/${file}`);
   client.commands.set(command.data.name, command);

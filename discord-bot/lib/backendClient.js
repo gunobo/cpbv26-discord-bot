@@ -53,6 +53,10 @@ function getStatus() {
   return backendFetch("/internal/status");
 }
 
+function getEvents() {
+  return backendFetch("/internal/events");
+}
+
 function getUser(discordId) {
   return backendFetch(`/internal/users/${encodeURIComponent(discordId)}`, {
     notFoundReturnsNull: true,
@@ -75,4 +79,5 @@ module.exports = {
   getUser,
   deleteUser,
   getStatus,
+  getEvents,
 };
